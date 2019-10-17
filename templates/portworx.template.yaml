@@ -673,20 +673,20 @@ Resources:
         data:
           policy.cfg: |-
             {
-            "kind": "Policy",
-            "apiVersion": "v1",
-            "extenders": [
-              {
-                "urlPrefix": "http://stork-service.kube-system:8099",
-                "apiVersion": "v1beta1",
-                "filterVerb": "filter",
-                "prioritizeVerb": "prioritize",
-                "weight": 5,
-                "enableHttps": false,
-                "nodeCacheCapable": false
-              }
-            ]
-          }
+              "kind": "Policy",
+              "apiVersion": "v1",
+              "extenders": [
+                {
+                  "urlPrefix": "http://stork-service.kube-system:8099",
+                  "apiVersion": "v1beta1",
+                  "filterVerb": "filter",
+                  "prioritizeVerb": "prioritize",
+                  "weight": 5,
+                  "enableHttps": false,
+                  "nodeCacheCapable": false
+                }
+              ]
+            }
   PXStorkDeploymentStack:
     DependsOn: PortworxNamespaceStack
     Type: "Custom::KubeManifest"
