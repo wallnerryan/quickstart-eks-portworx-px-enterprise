@@ -33,6 +33,7 @@ Metadata:
       - PortworxVersion
       - LightHouseVersion
       - VolumeTemplateString
+      - MetadataTemplateString
     - Label:
         default: AWS Quick Start configuration
       Parameters:
@@ -77,6 +78,8 @@ Metadata:
         default: Version of Lighthouse X.Y.Z
       VolumeTemplateString:
         default: Template string for partitioning
+      MetadataTemplateString:
+        default: Template string for metadata
       VPCID:
         default: VPC ID
 Parameters:
@@ -254,6 +257,10 @@ if left blank, a bucket will be created.'
     Type: String
     Default: "type=gp2,size=100"
     Description: The template string used for partitioning. For more information, see https://docs.portworx.com/cloud-references/auto-disk-provisioning/aws/.
+  MetadataTemplateString:
+    Type: String
+    Default: "type=gp2,size=100"
+    Description: The template string used for metadata.
 Resources:
   EKSStack:
     Type: AWS::CloudFormation::Stack
@@ -292,6 +299,7 @@ Resources:
         PortworxVersion: !Ref PortworxVersion
         LightHouseVersion: !Ref LightHouseVersion
         VolumeTemplateString: !Ref VolumeTemplateString
+        MetadataTemplateString: !Ref MetadataTemplateString
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath
