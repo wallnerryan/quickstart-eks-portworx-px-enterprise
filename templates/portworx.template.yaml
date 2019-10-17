@@ -1148,7 +1148,7 @@ Resources:
                 - --controllers=persistentvolume-binder,persistentvolume-expander
                 - --use-service-account-credentials=true
                 - --leader-elect-resource-lock=configmaps
-                image: !Join [ ":", [ "gcr.io/google_containers/kube-controller-manager-amd64", !Ref PXKubernetesVersion] ]
+                image: !Join [ ":v", [ "gcr.io/google_containers/kube-controller-manager-amd64", !Ref PXKubernetesVersion] ]
                 livenessProbe:
                   failureThreshold: 8
                   httpGet:

@@ -346,7 +346,7 @@ Resources:
         LightHouseVersion: !Ref LightHouseVersion
         VolumeTemplateString: !Ref VolumeTemplateString
         MetadataTemplateString: !Ref MetadataTemplateString
-        KubernetesVersion: !Ref PXKubernetesVersion
+        PXKubernetesVersion: !Ref KubernetesVersion
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath
