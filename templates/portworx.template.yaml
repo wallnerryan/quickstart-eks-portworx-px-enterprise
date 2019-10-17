@@ -38,7 +38,7 @@ Parameters:
     Description: The IAM NodeGroup Role for the Portworx Nodes (EKS Worker Nodes)
   PXKubernetesVersion:
     Type: String
-    Default: "1.13.0"
+    Default: "1.13"
     Description:  The EKS version used scheduler container image tags
   PortworxVersion:
     Type: String
@@ -873,7 +873,7 @@ Resources:
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # k8s version
-      PXKubernetesVersion: !Ref PXKubernetesVersion
+      PXKubernetesVersion: !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ]
       # Kubernetes manifest
       Manifest:
         apiVersion: apps/v1beta1
@@ -1113,7 +1113,7 @@ Resources:
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # k8s version
-      PXKubernetesVersion: !Ref PXKubernetesVersion
+      PXKubernetesVersion: !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ]
       # Kubernetes manifest
       Manifest:
         apiVersion: extensions/v1beta1
