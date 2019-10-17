@@ -903,7 +903,7 @@ Resources:
                 - --policy-configmap=stork-config
                 - --policy-configmap-namespace=kube-system
                 - --lock-object-name=stork-scheduler
-                image: !Join [ ":", [ "gcr.io/google_containers/kube-scheduler-amd64", !Ref PXKubernetesVersion ] ]
+                image: !Join [ ":v", [ "gcr.io/google_containers/kube-scheduler-amd64", !Ref PXKubernetesVersion ] ]
                 livenessProbe:
                   httpGet:
                     path: /healthz

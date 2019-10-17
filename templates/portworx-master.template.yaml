@@ -31,7 +31,6 @@ Metadata:
     - Label:
         default: Portworx configuration
       Parameters:
-      - PXKubernetesVersion
       - PortworxVersion
       - LightHouseVersion
       - VolumeTemplateString
@@ -78,8 +77,6 @@ Metadata:
         default: Node group name
       NodeVolumeSize:
         default: Node volume size
-      PXKubernetesVersion:
-        default: Portworx version tag
       PortworxVersion:
         default: Version of Portworx X.Y.Z
       LightHouseVersion:
@@ -273,21 +270,16 @@ Parameters:
     Type: String
     Default: ''
   KubernetesVersion:
-    Description: The Kubernetes version of the Amazon EKS cluster.
+    Description: The Kubernetes version of the Amazon EKS cluster. ((https://docs.aws.amazon.com/eks/latest/userguide/platform-versions.html))
     Type: String
-    AllowedValues: [ "1.11", "1.10" ]
-    Default: "1.11"
-  PXKubernetesVersion:
-    Type: String
-    Default: "v1.11.0"
-    Description:  The tag for the Portworx container image version.
+    Default: "1.14.7"
   PortworxVersion:
     Type: String
-    Default: "2.0.1"
+    Default: "2.2.0"
     Description: The version of Portworx that is deployed by this Quick Start.
   LightHouseVersion:
     Type: String
-    Default: "2.0.1"
+    Default: "2.0.5"
     Description: The version of the Portworx Lighthouse UI.
   VolumeTemplateString:
     Type: String
@@ -350,11 +342,11 @@ Resources:
         KubeManifestLambdaArn: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
         PortworxClusterName: !Join [ "-", [ !GetAtt EKSStack.Outputs.EKSClusterName, "portworx-cluster" ] ]
         NodeGroupIAMRole: !GetAtt EKSStack.Outputs.NodeInstanceRoleName
-        PXKubernetesVersion: !Ref PXKubernetesVersion
         PortworxVersion: !Ref PortworxVersion
         LightHouseVersion: !Ref LightHouseVersion
         VolumeTemplateString: !Ref VolumeTemplateString
         MetadataTemplateString: !Ref MetadataTemplateString
+        KubernetesVersion: !Ref PXKubernetesVersion
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath
