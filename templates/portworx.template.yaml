@@ -306,7 +306,7 @@ Resources:
             spec:
               initContainers:
               - name: config-init
-                image: portworx/lh-config-sync:0.2
+                image: !Join [ ":", [ "portworx/lh-config-sync", !Ref LightHouseVersion ] ]
                 imagePullPolicy: Always
                 args:
                 - "init"
@@ -324,7 +324,7 @@ Resources:
                 - name: config
                   mountPath: /config/lh
               - name: config-sync
-                image: portworx/lh-config-sync:0.2
+                image: !Join [ ":", [ "portworx/lh-config-sync", !Ref LightHouseVersion ] ]
                 imagePullPolicy: Always
                 args:
                 - "sync"
@@ -348,7 +348,7 @@ Resources:
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # Kubernetes manifest
       Manifest:
-        kind: RoleBinding
+        kind: ClusterRoleBinding
         apiVersion: rbac.authorization.k8s.io/v1
         metadata:
           name: px-lh-role-binding
@@ -358,7 +358,7 @@ Resources:
           name: px-lh-account
           namespace: kube-system
         roleRef:
-          kind: Role
+          kind: ClusterRole
           name: px-lh-role
           apiGroup: rbac.authorization.k8s.io
   PXLighthouseRoleStack:
@@ -795,54 +795,9 @@ Resources:
         metadata:
            name: stork-role
         rules:
-          - apiGroups: [""]
-            resources: ["pods", "pods/exec"]
-            verbs: ["get", "list", "delete", "create"]
-          - apiGroups: [""]
-            resources: ["persistentvolumes"]
-            verbs: ["get", "list", "watch", "create", "delete"]
-          - apiGroups: [""]
-            resources: ["persistentvolumeclaims"]
-            verbs: ["get", "list", "watch", "update"]
-          - apiGroups: ["storage.k8s.io"]
-            resources: ["storageclasses"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: [""]
-            resources: ["events"]
-            verbs: ["list", "watch", "create", "update", "patch"]
-          - apiGroups: ["stork.libopenstorage.org"]
-            resources: ["rules"]
-            verbs: ["get", "list"]
-          - apiGroups: ["stork.libopenstorage.org"]
-            resources: ["migrations", "clusterpairs"]
-            verbs: ["get", "list", "watch", "update", "patch"]
-          - apiGroups: ["apiextensions.k8s.io"]
-            resources: ["customresourcedefinitions"]
-            verbs: ["create", "get"]
-          - apiGroups: ["volumesnapshot.external-storage.k8s.io"]
-            resources: ["volumesnapshots"]
-            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-          - apiGroups: ["volumesnapshot.external-storage.k8s.io"]
-            resources: ["volumesnapshotdatas"]
-            verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-          - apiGroups: [""]
-            resources: ["configmaps"]
-            verbs: ["get", "create", "update"]
-          - apiGroups: [""]
-            resources: ["services"]
-            verbs: ["get"]
-          - apiGroups: [""]
-            resources: ["nodes"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: ["*"]
-            resources: ["deployments", "deployments/extensions"]
-            verbs: ["list", "get", "watch", "patch", "update", "initialize"]
-          - apiGroups: ["*"]
-            resources: ["statefulsets", "statefulsets/extensions"]
-            verbs: ["list", "get", "watch", "patch", "update", "initialize"]
           - apiGroups: ["*"]
             resources: ["*"]
-            verbs: ["list", "get"]
+            verbs: ["*"]
   PXStorkSchedulerAccountStack:
     DependsOn: PortworxNamespaceStack
     Type: "Custom::KubeManifest"
@@ -873,7 +828,7 @@ Resources:
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # k8s version
-      PXKubernetesVersion: !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ]
+      PXKubernetesVersion: !Ref PXKubernetesVersion
       # Kubernetes manifest
       Manifest:
         apiVersion: apps/v1beta1
@@ -903,7 +858,7 @@ Resources:
                 - --policy-configmap=stork-config
                 - --policy-configmap-namespace=kube-system
                 - --lock-object-name=stork-scheduler
-                image: !Join [ ":v", [ "gcr.io/google_containers/kube-scheduler-amd64", !Ref PXKubernetesVersion ] ]
+                image: !Join [ ":v", [ "gcr.io/google_containers/kube-scheduler-amd64", !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ] ] ]
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -1113,7 +1068,7 @@ Resources:
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # k8s version
-      PXKubernetesVersion: !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ]
+      PXKubernetesVersion: !Ref PXKubernetesVersion
       # Kubernetes manifest
       Manifest:
         apiVersion: extensions/v1beta1
@@ -1148,7 +1103,7 @@ Resources:
                 - --controllers=persistentvolume-binder,persistentvolume-expander
                 - --use-service-account-credentials=true
                 - --leader-elect-resource-lock=configmaps
-                image: !Join [ ":v", [ "gcr.io/google_containers/kube-controller-manager-amd64", !Ref PXKubernetesVersion] ]
+                image: !Join [ ":v", [ "gcr.io/google_containers/kube-controller-manager-amd64", !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ] ] ]
                 livenessProbe:
                   failureThreshold: 8
                   httpGet:
