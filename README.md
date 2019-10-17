@@ -23,9 +23,12 @@ To post feedback, submit feature ideas, or report bugs, use the **Issues** secti
 This Quick Start was built in collaboration with [Portworx, Inc.](https://portworx.com), an AWS Partner Network (APN) Partner.
 
 
-### TODO / Currently Unsupported
+### TODO / Limitations
 
 - Allow custom Portworx configuration for oci-monitor
-- Allow CSI Installation On/Off configuration
+	- Currently only a subset of parameters are used (Example, external ETCD currently not configurable from QuickStart)
 - Add DR Sync Configurable (Domain)
+- Allow CSI Installation On/Off configuration
+	- (users can still update to use CSI with `kubectl` from bastion host)
 - Build in Portworx Monitoring to initial deployment
+	- (users can still install monitoring with `kubectl` from bastion host)
