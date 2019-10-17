@@ -1276,7 +1276,7 @@ Resources:
       # false 
       PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
       # Kubernetes manifest
-      Manifest:
+      Manifest: !Sub |
         apiVersion: extensions/v1beta1
         kind: DaemonSet
         metadata:
