@@ -234,9 +234,9 @@ if left blank, a bucket will be created.'
     Description: The ID of the private subnet 3 in Availability Zone 3 (e.g., subnet-a0246dcd).
     Type: "AWS::EC2::Subnet::Id"
   KubernetesVersion:
-    Description: The Kubernetes version  of the Amazon EKS cluster. (https://docs.aws.amazon.com/eks/latest/userguide/platform-versions.html)
+    Description: The Kubernetes version  of the Amazon EKS cluster. (https://github.com/aws-quickstart/quickstart-amazon-eks/blob/master/templates/amazon-eks.template.yaml#L142)
     Type: String
-    Default: "1.14.7"
+    Default: "1.13.0"
   PortworxVersion:
     Type: String
     Default: "2.2.0"

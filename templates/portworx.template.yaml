@@ -38,7 +38,7 @@ Parameters:
     Description: The IAM NodeGroup Role for the Portworx Nodes (EKS Worker Nodes)
   PXKubernetesVersion:
     Type: String
-    Default: "v1.14.7"
+    Default: "1.13.0"
     Description:  The EKS version used scheduler container image tags
   PortworxVersion:
     Type: String
