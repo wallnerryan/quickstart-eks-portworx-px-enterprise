@@ -26,9 +26,9 @@ This Quick Start was built in collaboration with [Portworx, Inc.](https://portwo
 ### TODO / Limitations
 
 - Allow custom Portworx configuration for oci-monitor
-	- Currently only a subset of parameters are used (Example, external ETCD currently not configurable from QuickStart)
-- Add DR Sync Configurable (Domain)
-- Allow CSI Installation On/Off configuration
-	- (users can still update to use CSI with `kubectl` from bastion host)
-- Build in Portworx Monitoring to initial deployment
-	- (users can still install monitoring with `kubectl` from bastion host)
+	- Currently only a subset of parameters are used and limit configuration. 
+	- Note, some of these options can be changes using `kubectl` on the bastion host.
+	- Examples of currently unsupported options **during stack creation**:
+		- External ETCD currently not configurable.
+		- Synchronouse DR. Which would need to add `cluster_domain`.
+		- Use CSI or not. (Does not by default)
