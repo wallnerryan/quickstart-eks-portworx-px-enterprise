@@ -21,3 +21,14 @@ For architectural details, best practices, step-by-step instructions, and custom
 To post feedback, submit feature ideas, or report bugs, use the **Issues** section of this GitHub repo. If you'd like to submit code for this Quick Start, please review the [AWS Quick Start Contributor's Kit](https://aws-quickstart.github.io/).
 
 This Quick Start was built in collaboration with [Portworx, Inc.](https://portworx.com), an AWS Partner Network (APN) Partner.
+
+
+### TODO / Limitations
+
+- Allow custom Portworx configuration for oci-monitor
+	- Currently only a subset of parameters are used and limit configuration. 
+	- Note, some of these options can be changes using `kubectl` on the bastion host.
+	- Examples of currently unsupported options **during stack creation**:
+		- External ETCD currently not configurable.
+		- Synchronouse DR. Which would need to add `cluster_domain`.
+		- Use CSI or not. (Does not by default)

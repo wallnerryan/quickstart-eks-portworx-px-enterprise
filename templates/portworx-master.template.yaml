@@ -31,10 +31,10 @@ Metadata:
     - Label:
         default: Portworx configuration
       Parameters:
-      - PXKubernetesVersion
       - PortworxVersion
       - LightHouseVersion
       - VolumeTemplateString
+      - MetadataTemplateString
     - Label:
         default: AWS Quick Start configuration
       Parameters:
@@ -77,14 +77,14 @@ Metadata:
         default: Node group name
       NodeVolumeSize:
         default: Node volume size
-      PXKubernetesVersion:
-        default: Portworx version tag
       PortworxVersion:
         default: Version of Portworx X.Y.Z
       LightHouseVersion:
         default: Version of Lighthouse X.Y.Z
       VolumeTemplateString:
         default: Template string for partitioning
+      MetadataTemplateString:
+        default: Template string for metadata
 Parameters:
   AvailabilityZones:
     Description: The list of Availability Zones to use for the subnets in the VPC. Three
@@ -270,26 +270,25 @@ Parameters:
     Type: String
     Default: ''
   KubernetesVersion:
-    Description: The Kubernetes version of the Amazon EKS cluster.
+    Description: The Kubernetes version of the Amazon EKS cluster. (https://github.com/aws-quickstart/quickstart-amazon-eks/blob/master/templates/amazon-eks.template.yaml#L142)
     Type: String
-    AllowedValues: [ "1.11", "1.10" ]
-    Default: "1.11"
-  PXKubernetesVersion:
-    Type: String
-    Default: "v1.11.0"
-    Description:  The tag for the Portworx container image version.
+    Default: "1.13"
   PortworxVersion:
     Type: String
-    Default: "2.0.1"
+    Default: "2.2.0"
     Description: The version of Portworx that is deployed by this Quick Start.
   LightHouseVersion:
     Type: String
-    Default: "2.0.1"
+    Default: "2.0.5"
     Description: The version of the Portworx Lighthouse UI.
   VolumeTemplateString:
     Type: String
     Default: "type=gp2,size=100"
     Description: The template string used for partitioning. For more information, see https://docs.portworx.com/cloud-references/auto-disk-provisioning/aws/.
+  MetadataTemplateString:
+    Type: String
+    Default: "type=gp2,size=100"
+    Description: The template string used for metadata.
 Resources:
   VPCStack:
     Type: AWS::CloudFormation::Stack
@@ -343,10 +342,11 @@ Resources:
         KubeManifestLambdaArn: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
         PortworxClusterName: !Join [ "-", [ !GetAtt EKSStack.Outputs.EKSClusterName, "portworx-cluster" ] ]
         NodeGroupIAMRole: !GetAtt EKSStack.Outputs.NodeInstanceRoleName
-        PXKubernetesVersion: !Ref PXKubernetesVersion
         PortworxVersion: !Ref PortworxVersion
         LightHouseVersion: !Ref LightHouseVersion
         VolumeTemplateString: !Ref VolumeTemplateString
+        MetadataTemplateString: !Ref MetadataTemplateString
+        PXKubernetesVersion: !Ref KubernetesVersion
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath
