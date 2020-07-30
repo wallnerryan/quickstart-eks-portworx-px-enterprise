@@ -25,12 +25,9 @@ Metadata:
       - NodeGroupName
       - NodeVolumeSize
       - AdditionalEKSAdminArns
-      - KubernetesVersion
     - Label:
         default: Portworx configuration
       Parameters:
-      - PortworxVersion
-      - LightHouseVersion
       - VolumeTemplateString
       - MetadataTemplateString
     - Label:
@@ -67,12 +64,6 @@ Metadata:
         default: Private Subnet 3 ID
       AdditionalEKSAdminArns:
         default: Additional EKS admin ARNs
-      KubernetesVersion:
-        default: Kubernetes version
-      PortworxVersion:
-        default: Version of Portworx X.Y.Z
-      LightHouseVersion:
-        default: Version of Lighthouse X.Y.Z
       VolumeTemplateString:
         default: Template string for partitioning
       MetadataTemplateString:
@@ -233,18 +224,6 @@ if left blank, a bucket will be created.'
   PrivateSubnet3ID:
     Description: The ID of the private subnet 3 in Availability Zone 3 (e.g., subnet-a0246dcd).
     Type: "AWS::EC2::Subnet::Id"
-  KubernetesVersion:
-    Description: The Kubernetes version  of the Amazon EKS cluster. (https://github.com/aws-quickstart/quickstart-amazon-eks/blob/master/templates/amazon-eks.template.yaml#L142)
-    Type: String
-    Default: "1.13"
-  PortworxVersion:
-    Type: String
-    Default: "2.2.0"
-    Description: The version of Portworx that is deployed by this Quick Start.
-  LightHouseVersion:
-    Type: String
-    Default: "2.0.5"
-    Description: The version of the Portworx Lighthouse UI.
   VolumeTemplateString:
     Type: String
     Default: "type=gp2,size=100"
@@ -275,7 +254,7 @@ Resources:
         RemoteAccessCIDR: !Ref RemoteAccessCIDR
         AdditionalEKSAdminArns: !Join [ ",", !Ref AdditionalEKSAdminArns ]
         VPCID: !Ref VPCID
-        KubernetesVersion: !Ref KubernetesVersion
+        KubernetesVersion: "1.16.8"
   PortworxStack:
     DependsOn: EKSStack
     Type: AWS::CloudFormation::Stack
@@ -287,11 +266,8 @@ Resources:
         KubeManifestLambdaArn: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
         PortworxClusterName: !Join [ "-", [ !GetAtt EKSStack.Outputs.EKSClusterName, "portworx-cluster" ] ]
         NodeGroupIAMRole: !GetAtt EKSStack.Outputs.NodeGroupIAMRole
-        PortworxVersion: !Ref PortworxVersion
-        LightHouseVersion: !Ref LightHouseVersion
         VolumeTemplateString: !Ref VolumeTemplateString
         MetadataTemplateString: !Ref MetadataTemplateString
-        PXKubernetesVersion: !Ref KubernetesVersion
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath

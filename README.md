@@ -23,11 +23,11 @@ To post feedback, submit feature ideas, or report bugs, use the **Issues** secti
 This Quick Start was built in collaboration with [Portworx, Inc.](https://portworx.com), an AWS Partner Network (APN) Partner.
 
 
-### TODO / Limitations
+### Limitations
 
 - Allow custom Portworx configuration for oci-monitor
 	- Currently only a subset of parameters are used and limit configuration. 
-	- Note, some of these options can be changes using `kubectl` on the bastion host.
+	- Note, some of these options can be changed using `kubectl` on the bastion host.
 	- Examples of currently unsupported options **during stack creation**:
 		- External ETCD currently not configurable.
 		- Synchronouse DR. Which would need to add `cluster_domain`.
