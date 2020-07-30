@@ -27,12 +27,9 @@ Metadata:
       - NodeGroupName
       - NodeVolumeSize
       - AdditionalEKSAdminArns
-      - KubernetesVersion
     - Label:
         default: Portworx configuration
       Parameters:
-      - PortworxVersion
-      - LightHouseVersion
       - VolumeTemplateString
       - MetadataTemplateString
     - Label:
@@ -65,8 +62,6 @@ Metadata:
         default: Allowed external access CIDR
       AdditionalEKSAdminArns:
         default: Additional EKS admin ARNs
-      KubernetesVersion:
-        default: Kubernetes version
       VPCCIDR:
         default: VPC CIDR
       NodeInstanceType:
@@ -77,10 +72,6 @@ Metadata:
         default: Node group name
       NodeVolumeSize:
         default: Node volume size
-      PortworxVersion:
-        default: Version of Portworx X.Y.Z
-      LightHouseVersion:
-        default: Version of Lighthouse X.Y.Z
       VolumeTemplateString:
         default: Template string for partitioning
       MetadataTemplateString:
@@ -269,18 +260,6 @@ Parameters:
         if left blank, a bucket will be created.'
     Type: String
     Default: ''
-  KubernetesVersion:
-    Description: The Kubernetes version of the Amazon EKS cluster. (https://github.com/aws-quickstart/quickstart-amazon-eks/blob/master/templates/amazon-eks.template.yaml#L142)
-    Type: String
-    Default: "1.13"
-  PortworxVersion:
-    Type: String
-    Default: "2.2.0"
-    Description: The version of Portworx that is deployed by this Quick Start.
-  LightHouseVersion:
-    Type: String
-    Default: "2.0.5"
-    Description: The version of the Portworx Lighthouse UI.
   VolumeTemplateString:
     Type: String
     Default: "type=gp2,size=100"
@@ -331,7 +310,7 @@ Resources:
         RemoteAccessCIDR: !Ref RemoteAccessCIDR
         AdditionalEKSAdminArns: !Join [ ",", !Ref AdditionalEKSAdminArns ]
         VPCID: !GetAtt VPCStack.Outputs.VPCID
-        KubernetesVersion: !Ref KubernetesVersion
+        KubernetesVersion: "1.16.8"
   PortworxStack:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -341,12 +320,9 @@ Resources:
         KubeConfigKmsContext: "EKSQuickStart"
         KubeManifestLambdaArn: !GetAtt EKSStack.Outputs.KubeManifestLambdaArn
         PortworxClusterName: !Join [ "-", [ !GetAtt EKSStack.Outputs.EKSClusterName, "portworx-cluster" ] ]
-        NodeGroupIAMRole: !GetAtt EKSStack.Outputs.NodeInstanceRoleName
-        PortworxVersion: !Ref PortworxVersion
-        LightHouseVersion: !Ref LightHouseVersion
+        NodeGroupIAMRole: !GetAtt EKSStack.Outputs.NodeInstanceRoleName 
         VolumeTemplateString: !Ref VolumeTemplateString
         MetadataTemplateString: !Ref MetadataTemplateString
-        PXKubernetesVersion: !Ref KubernetesVersion
 Outputs:
   KubeConfigPath:
     Value: !GetAtt EKSStack.Outputs.KubeConfigPath

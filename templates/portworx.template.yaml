@@ -6,18 +6,9 @@ Metadata:
     - Label:
         default: Portworx Configuration
       Parameters:
-      - PXKubernetesVersion
-      - PortworxVersion
-      - LightHouseVersion
       - VolumeTemplateString
       - MetadataTemplateString
     ParameterLabels:
-      PXKubernetesVersion:
-        default: The EKS version used scheduler container image tags
-      PortworxVersion:
-        default: Version of portworx X.Y.Z
-      LightHouseVersion:
-        default: Version of Lighthouse X.Y.Z
       VolumeTemplateString:
         default: The template string (https://docs.portworx.com/cloud-references/auto-disk-provisioning/aws/)
       MetadataTemplateString:
@@ -36,18 +27,6 @@ Parameters:
   NodeGroupIAMRole:
     Type: String
     Description: The IAM NodeGroup Role for the Portworx Nodes (EKS Worker Nodes)
-  PXKubernetesVersion:
-    Type: String
-    Default: "1.13"
-    Description:  The EKS version used scheduler container image tags
-  PortworxVersion:
-    Type: String
-    Default: "2.2.0"
-    Description: Version of portworx X.Y.Z
-  LightHouseVersion:
-    Type: String
-    Default: "2.0.5"
-    Description: Version of Lighthouse X.Y.Z
   VolumeTemplateString:
     Type: String
     Default: "type=gp2,size=100"
@@ -90,20 +69,23 @@ Resources:
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # Cluster name to use in daemonset
       PortworxClusterName: !Ref PortworxClusterName
-      # Portworx Version
-      PortworxVersion: !Ref PortworxVersion
       # Portworx PxEnabledNotInValue
       PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
       # Kubernetes manifest
       Manifest: !Sub |
-        apiVersion: extensions/v1beta1
+        apiVersion: apps/v1
         kind: DaemonSet
         metadata:
           name: portworx
           namespace: kube-system
+          labels:
+            name: portworx
           annotations:
-            portworx.com/install-source: "https://install.portworx.com"
+            portworx.com/install-source: "https://install.portworx.com/?mc=false&kbver=1.16.8&b=true&s=%22type%3Dgp2%2Csize%3D150%22&kd=type%3Dgp2%2Csize%3D150&c=px-cluster-9dee7a2a-e181-4864-bf33-1764a936f958&eks=true&stork=true&st=k8s"
         spec:
+          selector:
+            matchLabels:
+              name: portworx
           minReadySeconds: 0
           updateStrategy:
             type: RollingUpdate
@@ -122,14 +104,14 @@ Resources:
                       - key: px/enabled
                         operator: NotIn
                         values:
-                        - "${PortworxPxEnabledNotInValue}"
+                        - "false"
                       - key: node-role.kubernetes.io/master
                         operator: DoesNotExist
               hostNetwork: true
               hostPID: false
               containers:
                 - name: portworx
-                  image: "portworx/oci-monitor:${PortworxVersion}"
+                  image: portworx/oci-monitor:2.5.3
                   imagePullPolicy: Always
                   args:
                     ["-b", "-c", "${PortworxClusterName}", 
@@ -249,197 +231,6 @@ Resources:
         metadata:
           name: px-account
           namespace: kube-system
-  PXLightgouseServiceAccountStack:
-    DependsOn: PortworxNamespaceStack
-    Type: "Custom::KubeManifest"
-    Version: '1.0'
-    Properties:
-      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
-      ServiceToken: !Ref KubeManifestLambdaArn
-      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
-      KubeConfigPath: !Ref KubeConfigPath
-      # context for KMS to use when decrypting the file
-      KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # Kubernetes manifest
-      Manifest:
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: px-lh-account
-          namespace: kube-system
-  PXLightgouseDeploymentStack:
-    DependsOn: PortworxNamespaceStack
-    Type: "Custom::KubeManifest"
-    Version: '1.0'
-    Properties:
-      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
-      ServiceToken: !Ref KubeManifestLambdaArn
-      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
-      KubeConfigPath: !Ref KubeConfigPath
-      # context for KMS to use when decrypting the file
-      KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # Version of the UI
-      LightHouseVersion: !Ref LightHouseVersion
-      # Kubernetes manifest
-      Manifest:
-        apiVersion: apps/v1beta2
-        kind: Deployment
-        metadata:
-          name: px-lighthouse
-          namespace: kube-system
-          labels:
-            tier: px-web-console
-        spec:
-          replicas: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: 1
-              maxUnavailable: 1
-            type: RollingUpdate
-          selector:
-            matchLabels:
-              tier: px-web-console
-          template:
-            metadata:
-              labels:
-                tier: px-web-console
-            spec:
-              initContainers:
-              - name: config-init
-                image: !Join [ ":", [ "portworx/lh-config-sync", !Ref LightHouseVersion ] ]
-                imagePullPolicy: Always
-                args:
-                - "init"
-                volumeMounts:
-                - name: config
-                  mountPath: /config/lh
-              containers:
-              - name: px-lighthouse
-                image: !Join [ ":", [ "portworx/px-lighthouse", !Ref LightHouseVersion ] ]
-                imagePullPolicy: Always
-                ports:
-                - containerPort: 80
-                - containerPort: 443
-                volumeMounts:
-                - name: config
-                  mountPath: /config/lh
-              - name: config-sync
-                image: !Join [ ":", [ "portworx/lh-config-sync", !Ref LightHouseVersion ] ]
-                imagePullPolicy: Always
-                args:
-                - "sync"
-                volumeMounts:
-                - name: config
-                  mountPath: /config/lh
-              serviceAccountName: px-lh-account
-              volumes:
-              - name: config
-                emptyDir: {}
-  PXLighthouseRoleBindingStack:
-    DependsOn: PortworxNamespaceStack
-    Type: "Custom::KubeManifest"
-    Version: '1.0'
-    Properties:
-      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
-      ServiceToken: !Ref KubeManifestLambdaArn
-      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
-      KubeConfigPath: !Ref KubeConfigPath
-      # context for KMS to use when decrypting the file
-      KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # Kubernetes manifest
-      Manifest:
-        kind: ClusterRoleBinding
-        apiVersion: rbac.authorization.k8s.io/v1
-        metadata:
-          name: px-lh-role-binding
-          namespace: kube-system
-        subjects:
-        - kind: ServiceAccount
-          name: px-lh-account
-          namespace: kube-system
-        roleRef:
-          kind: ClusterRole
-          name: px-lh-role
-          apiGroup: rbac.authorization.k8s.io
-  PXLighthouseRoleStack:
-    DependsOn: PortworxNamespaceStack
-    Type: "Custom::KubeManifest"
-    Version: '1.0'
-    Properties:
-      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
-      ServiceToken: !Ref KubeManifestLambdaArn
-      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
-      KubeConfigPath: !Ref KubeConfigPath
-      # context for KMS to use when decrypting the file
-      KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # Kubernetes manifest
-      Manifest:
-        kind: ClusterRole
-        apiVersion: rbac.authorization.k8s.io/v1
-        metadata:
-          name: px-lh-role
-          namespace: kube-system
-        rules:
-          - apiGroups: [""]
-            resources: ["pods"]
-            verbs: ["list", "get"]
-          - apiGroups:
-                - extensions
-                - apps
-            resources:
-                - deployments
-            verbs: ["get", "list"]
-          - apiGroups: [""]
-            resources: ["secrets"]
-            verbs: ["get", "create", "update"]
-          - apiGroups: [""]
-            resources: ["configmaps"]
-            verbs: ["get", "create", "update"]
-          - apiGroups: [""]
-            resources: ["nodes"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: [""]
-            resources: ["services"]
-            verbs: ["create", "get", "list", "watch"]
-          - apiGroups: ["stork.libopenstorage.org"]
-            resources: ["clusterpairs","migrations","groupvolumesnapshots"]
-            verbs: ["get", "list", "create", "update", "delete"]
-          - apiGroups: ["monitoring.coreos.com"]
-            resources:
-              - alertmanagers
-              - prometheuses
-              - prometheuses/finalizers
-              - servicemonitors
-            verbs: ["*"]
-  PXLighthouseServiceStack:
-    DependsOn: PortworxNamespaceStack
-    Type: "Custom::KubeManifest"
-    Version: '1.0'
-    Properties:
-      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
-      ServiceToken: !Ref KubeManifestLambdaArn
-      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
-      KubeConfigPath: !Ref KubeConfigPath
-      # context for KMS to use when decrypting the file
-      KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # Kubernetes manifest
-      Manifest:
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: px-lighthouse
-          namespace: kube-system
-          labels:
-            tier: px-web-console
-        spec:
-          type: LoadBalancer
-          ports:
-            - port: 80
-              name: http
-            - port: 443
-              name: https
-          selector:
-            tier: px-web-console
   PXNodeGetPutListRoleStack:
     DependsOn: PortworxNamespaceStack
     Type: "Custom::KubeManifest"
@@ -579,7 +370,7 @@ Resources:
         spec:
           selector:
             name: portworx-api
-          type: NodePort
+          type: ClusterIP
           ports:
             - name: px-api
               protocol: TCP
@@ -683,7 +474,8 @@ Resources:
                   "prioritizeVerb": "prioritize",
                   "weight": 5,
                   "enableHttps": false,
-                  "nodeCacheCapable": false
+                  "nodeCacheCapable": false,
+                  "httpTimeout": 300000000000
                 }
               ]
             }
@@ -700,7 +492,7 @@ Resources:
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
       # Kubernetes manifest
       Manifest:
-        apiVersion: extensions/v1beta1
+        apiVersion: apps/v1
         kind: Deployment
         metadata:
           annotations:
@@ -710,6 +502,9 @@ Resources:
           name: stork
           namespace: kube-system
         spec:
+          selector:
+            matchLabels:
+              name: stork
           strategy:
             rollingUpdate:
               maxSurge: 1
@@ -724,23 +519,6 @@ Resources:
                 name: stork
                 tier: control-plane
             spec:
-              containers:
-              - command:
-                - /stork
-                - --driver=pxd
-                - --verbose
-                - --leader-elect=true
-                - --health-monitor-interval=120
-                imagePullPolicy: Always
-                image: openstorage/stork:2.3.1
-                env:
-                - name: "PX_SERVICE_NAME"
-                  value: "portworx-api"
-                resources:
-                  requests:
-                    cpu: '0.1'
-                name: stork
-              hostPID: false
               affinity:
                 podAntiAffinity:
                   requiredDuringSchedulingIgnoredDuringExecution:
@@ -751,6 +529,24 @@ Resources:
                             values:
                             - stork
                       topologyKey: "kubernetes.io/hostname"
+              hostPID: false
+              containers:
+              - command:
+                - /stork
+                - --driver=pxd
+                - --verbose
+                - --leader-elect=true
+                - --health-monitor-interval=120
+                - --webhook-controller=false
+                image: openstorage/stork:2.4.2.1
+                imagePullPolicy: Always
+                env:
+                - name: "PX_SERVICE_NAME"
+                  value: "portworx-api"
+                resources:
+                  requests:
+                    cpu: '0.1'
+                name: stork
               serviceAccountName: stork-account
   PXStorkRoleBindingStack:
     DependsOn: PortworxNamespaceStack
@@ -827,63 +623,66 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # k8s version
-      PXKubernetesVersion: !Ref PXKubernetesVersion
       # Kubernetes manifest
       Manifest:
-        apiVersion: apps/v1beta1
-        kind: Deployment
-        metadata:
-          labels:
-            component: scheduler
-            tier: control-plane
-            name: stork-scheduler
+        apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    component: scheduler
+    tier: control-plane
+    name: stork-scheduler
+  name: stork-scheduler
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: stork-scheduler
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        component: scheduler
+        tier: control-plane
+        name: stork-scheduler
+      name: stork-scheduler
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "name"
+                    operator: In
+                    values:
+                    - stork-scheduler
+              topologyKey: "kubernetes.io/hostname"
+      hostPID: false
+      containers:
+        - command:
+          - /usr/local/bin/kube-scheduler
+          - --address=0.0.0.0
+          - --leader-elect=true
+          - --scheduler-name=stork
+          - --policy-configmap=stork-config
+          - --policy-configmap-namespace=kube-system
+          - --lock-object-name=stork-scheduler
+          image: gcr.io/google_containers/kube-scheduler-amd64:v1.16.8
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10251
+            initialDelaySeconds: 15
           name: stork-scheduler
-          namespace: kube-system
-        spec:
-          replicas: 3
-          template:
-            metadata:
-              labels:
-                component: scheduler
-                tier: control-plane
-              name: stork-scheduler
-            spec:
-              containers:
-              - command:
-                - /usr/local/bin/kube-scheduler
-                - --address=0.0.0.0
-                - --leader-elect=true
-                - --scheduler-name=stork
-                - --policy-configmap=stork-config
-                - --policy-configmap-namespace=kube-system
-                - --lock-object-name=stork-scheduler
-                image: !Join [ ":v", [ "gcr.io/google_containers/kube-scheduler-amd64", !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ] ] ]
-                livenessProbe:
-                  httpGet:
-                    path: /healthz
-                    port: 10251
-                  initialDelaySeconds: 15
-                name: stork-scheduler
-                readinessProbe:
-                  httpGet:
-                    path: /healthz
-                    port: 10251
-                resources:
-                  requests:
-                    cpu: '0.1'
-              affinity:
-                podAntiAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    - labelSelector:
-                        matchExpressions:
-                          - key: "name"
-                            operator: In
-                            values:
-                            - stork-scheduler
-                      topologyKey: "kubernetes.io/hostname"
-              hostPID: false
-              serviceAccountName: stork-scheduler-account
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 10251
+          resources:
+            requests:
+              cpu: '0.1'
+      serviceAccountName: stork-scheduler-account
   PXStorkSchedulerRoleBindingStack:
     DependsOn: PortworxNamespaceStack
     Type: "Custom::KubeManifest"
@@ -923,53 +722,56 @@ Resources:
       # Kubernetes manifest
       Manifest:
         kind: ClusterRole
-        apiVersion: rbac.authorization.k8s.io/v1
-        metadata:
-          name: stork-scheduler-role
-        rules:
-          - apiGroups: [""]
-            resources: ["endpoints"]
-            verbs: ["get", "create", "update"]
-          - apiGroups: [""]
-            resources: ["configmaps"]
-            verbs: ["get"]
-          - apiGroups: [""]
-            resources: ["events"]
-            verbs: ["create", "patch", "update"]
-          - apiGroups: [""]
-            resourceNames: ["kube-scheduler"]
-            resources: ["endpoints"]
-            verbs: ["delete", "get", "patch", "update"]
-          - apiGroups: [""]
-            resources: ["nodes"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: [""]
-            resources: ["pods"]
-            verbs: ["delete", "get", "list", "watch"]
-          - apiGroups: [""]
-            resources: ["bindings", "pods/binding"]
-            verbs: ["create"]
-          - apiGroups: [""]
-            resources: ["pods/status"]
-            verbs: ["patch", "update"]
-          - apiGroups: [""]
-            resources: ["replicationcontrollers", "services"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: ["apps", "extensions"]
-            resources: ["replicasets"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: ["apps"]
-            resources: ["statefulsets"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: ["policy"]
-            resources: ["poddisruptionbudgets"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: [""]
-            resources: ["persistentvolumeclaims", "persistentvolumes"]
-            verbs: ["get", "list", "watch"]
-          - apiGroups: ["storage.k8s.io"]
-            resources: ["storageclasses"]
-            verbs: ["get", "list", "watch"]
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: stork-scheduler-role
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "create", "update"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["", "events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create", "patch", "update"]
+  - apiGroups: [""]
+    resourceNames: ["kube-scheduler"]
+    resources: ["endpoints"]
+    verbs: ["delete", "get", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete", "get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["bindings", "pods/binding"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["patch", "update"]
+  - apiGroups: [""]
+    resources: ["replicationcontrollers", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps", "extensions"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims", "persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "update", "get", "list", "watch"]
   PXStorkServiceStack:
     DependsOn: PortworxNamespaceStack
     Type: "Custom::KubeManifest"
@@ -992,9 +794,14 @@ Resources:
           selector:
             name: stork
           ports:
-            - protocol: TCP
+            - name: extender
+              protocol: TCP
               port: 8099
               targetPort: 8099
+            - name: webhook
+              protocol: TCP
+              port: 443
+              targetPort: 443
   PXStorkSnapshotStorageClassStack:
     DependsOn: PortworxNamespaceStack
     Type: "Custom::KubeManifest"
@@ -1067,11 +874,9 @@ Resources:
       KubeConfigPath: !Ref KubeConfigPath
       # context for KMS to use when decrypting the file
       KubeConfigKmsContext: !Ref KubeConfigKmsContext
-      # k8s version
-      PXKubernetesVersion: !Ref PXKubernetesVersion
       # Kubernetes manifest
       Manifest:
-        apiVersion: extensions/v1beta1
+        apiVersion: apps/v1
         kind: Deployment
         metadata:
           annotations:
@@ -1081,6 +886,9 @@ Resources:
           name: portworx-pvc-controller
           namespace: kube-system
         spec:
+          selector:
+            matchLabels:
+              name: portworx-pvc-controller
           replicas: 3
           strategy:
             rollingUpdate:
@@ -1095,6 +903,17 @@ Resources:
                 name: portworx-pvc-controller
                 tier: control-plane
             spec:
+              affinity:
+                podAntiAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    - labelSelector:
+                        matchExpressions:
+                          - key: "name"
+                            operator: In
+                            values:
+                            - portworx-pvc-controller
+                      topologyKey: "kubernetes.io/hostname"
+              hostNetwork: true
               containers:
               - command:
                 - kube-controller-manager
@@ -1103,7 +922,8 @@ Resources:
                 - --controllers=persistentvolume-binder,persistentvolume-expander
                 - --use-service-account-credentials=true
                 - --leader-elect-resource-lock=configmaps
-                image: !Join [ ":v", [ "gcr.io/google_containers/kube-controller-manager-amd64", !Join [ ".", [ !Ref PXKubernetesVersion, "0"] ] ] ]
+                image: gcr.io/google_containers/kube-controller-manager-amd64:v1.16.8
+                imagePullPolicy: Always
                 livenessProbe:
                   failureThreshold: 8
                   httpGet:
@@ -1117,17 +937,6 @@ Resources:
                 resources:
                   requests:
                     cpu: 200m
-              hostNetwork: true
-              affinity:
-                podAntiAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    - labelSelector:
-                        matchExpressions:
-                          - key: "name"
-                            operator: In
-                            values:
-                            - portworx-pvc-controller
-                      topologyKey: "kubernetes.io/hostname"
               serviceAccountName: portworx-pvc-controller-account
   PXPvcControllerRoleStack:
     DependsOn: PortworxNamespaceStack
@@ -1181,6 +990,9 @@ Resources:
           resources: ["serviceaccounts"]
           verbs: ["get", "create"]
         - apiGroups: [""]
+          resources: ["serviceaccounts/token"]
+          verbs: ["create"]
+        - apiGroups: [""]
           resources: ["configmaps"]
           verbs: ["get", "create", "update"]
   PXVolumePlacementStrategiesStack:
@@ -1217,6 +1029,165 @@ Resources:
             shortNames:
             - vps
             - vp
+          preserveUnknownFields: false
+          validation:
+            openAPIV3Schema:
+              type: object
+              required:
+              - spec
+              properties:
+                spec:
+                  type: object
+                  description: The desired spec of the volume placement strategy
+                  properties:
+                    replicaAffinity:
+                      type: array
+                      description: Allows you to specify a rule which creates an affinity for replicas within a volume
+                      items:
+                        type: object
+                        properties:
+                          enforcement:
+                            type: string
+                            enum:
+                            - required
+                            - preferred
+                            description: Specifies if the given rule is required (hard) or preferred (soft)
+                          topologyKey:
+                            type: string
+                            minLength: 1
+                            description: Key for the node label that the system uses to denote a topology domain. The key can be for any node label that is present on the Kubernetes node.
+                          matchExpressions:
+                            description: Expression to use for the replica affinity rule
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                key:
+                                  type: string
+                                  minLength: 1
+                                operator:
+                                  type: string
+                                  enum:
+                                  - In
+                                  - NotIn
+                                  - Exists
+                                  - DoesNotExist
+                                  - Lt
+                                  - Gt
+                                  description: The logical operator to use for comparing the key and values in the match expression
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                              - key
+                              - operator
+                    replicaAntiAffinity:
+                      type: array
+                      description: Allows you to specify a rule that creates an anti-affinity for replicas within a volume
+                      items:
+                        type: object
+                        properties:
+                          enforcement:
+                            type: string
+                            enum:
+                            - required
+                            - preferred
+                            description: Specifies if the given rule is required (hard) or preferred (soft)
+                          topologyKey:
+                            type: string
+                            minLength: 1
+                            description: Key for the node label that the system uses to denote a topology domain. The key can be for any node label that is present on the Kubernetes node.
+                        required:
+                        - topologyKey
+                    volumeAffinity:
+                      type: array
+                      description: Allows you to colocate volumes by specifying rules that place replicas of a volume together with those of another volume for which the specified labels match
+                      items:
+                        type: object
+                        properties:
+                          enforcement:
+                            type: string
+                            enum:
+                            - required
+                            - preferred
+                            description: Specifies if the given rule is required (hard) or preferred (soft)
+                          topologyKey:
+                            type: string
+                            minLength: 1
+                            description: Key for the node label that the system uses to denote a topology domain. The key can be for any node label that is present on the Kubernetes node.
+                          matchExpressions:
+                            description: Expression to use for the volume affinity rule
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                key:
+                                  type: string
+                                  minLength: 1
+                                operator:
+                                  type: string
+                                  enum:
+                                  - In
+                                  - NotIn
+                                  - Exists
+                                  - DoesNotExist
+                                  - Lt
+                                  - Gt
+                                  description: The logical operator to use for comparing the key and values in the match expression
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                              - key
+                              - operator
+                        required:
+                        - matchExpressions
+                    volumeAntiAffinity:
+                      type: array
+                      description: Allows you to specify dissociation rules between 2 or more volumes that match the given labels
+                      items:
+                        type: object
+                        properties:
+                          enforcement:
+                            type: string
+                            enum:
+                            - required
+                            - preferred
+                            description: Specifies if the given rule is required (hard) or preferred (soft)
+                          topologyKey:
+                            type: string
+                            minLength: 1
+                            description: Key for the node label that the system uses to denote a topology domain. The key can be for any node label that is present on the Kubernetes node.
+                          matchExpressions:
+                            description: Expression to use for the volume anti affinity rule
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                key:
+                                  type: string
+                                  minLength: 1
+                                operator:
+                                  type: string
+                                  enum:
+                                  - In
+                                  - NotIn
+                                  - Exists
+                                  - DoesNotExist
+                                  - Lt
+                                  - Gt
+                                  description: The logical operator to use for comparing the key and values in the match expression
+                                values:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                              - key
+                              - operator
+                        required:
+                        - matchExpressions
   PXApiDSStack:
     DependsOn: PortworxNamespaceStack
     Type: "Custom::KubeManifest"
@@ -1232,12 +1203,17 @@ Resources:
       PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
       # Kubernetes manifest
       Manifest: !Sub |
-        apiVersion: extensions/v1beta1
+        apiVersion: apps/v1
         kind: DaemonSet
         metadata:
           name: portworx-api
           namespace: kube-system
+          labels:
+            name: portworx-api
         spec:
+          selector:
+            matchLabels:
+              name: portworx-api
           minReadySeconds: 0
           updateStrategy:
             type: RollingUpdate
@@ -1273,6 +1249,212 @@ Resources:
                       port: 9001
               restartPolicy: Always
               serviceAccountName: px-account
+  PXAutoPilotAccount:
+    DependsOn: PortworxNamespaceStack
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
+      ServiceToken: !Ref KubeManifestLambdaArn
+      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
+      KubeConfigPath: !Ref KubeConfigPath
+      # context for KMS to use when decrypting the file
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      # false 
+      PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
+      # Kubernetes manifest
+      Manifest: !Sub |
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: autopilot-account
+          namespace: kube-system
+  PXAutoPilotConfig:
+    DependsOn: PortworxNamespaceStack
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
+      ServiceToken: !Ref KubeManifestLambdaArn
+      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
+      KubeConfigPath: !Ref KubeConfigPath
+      # context for KMS to use when decrypting the file
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      # false 
+      PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
+      # Kubernetes manifest
+      Manifest: !Sub |
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: autopilot-config
+          namespace: kube-system
+        data:
+          config.yaml: |-
+            providers:
+               - name: default
+                 type: prometheus
+                 params: url=http://prometheus:9090
+            min_poll_interval: 2
+  PXAutoPilotRole:
+    DependsOn: PortworxNamespaceStack
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
+      ServiceToken: !Ref KubeManifestLambdaArn
+      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
+      KubeConfigPath: !Ref KubeConfigPath
+      # context for KMS to use when decrypting the file
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      # false 
+      PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
+      # Kubernetes manifest
+      Manifest: !Sub |
+        kind: ClusterRole
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+           name: autopilot-role
+        rules:
+          - apiGroups: ["*"]
+            resources: ["*"]
+            verbs: ["*"]
+  PXAutoPilotRoleBinding:
+    DependsOn: PortworxNamespaceStack
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
+      ServiceToken: !Ref KubeManifestLambdaArn
+      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
+      KubeConfigPath: !Ref KubeConfigPath
+      # context for KMS to use when decrypting the file
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      # false 
+      PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
+      # Kubernetes manifest
+      Manifest: !Sub |
+        kind: ClusterRoleBinding
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+          name: autopilot-role-binding
+        subjects:
+        - kind: ServiceAccount
+          name: autopilot-account
+          namespace: kube-system
+        roleRef:
+          kind: ClusterRole
+          name: autopilot-role
+          apiGroup: rbac.authorization.k8s.io
+  PXAutoPilotDeployment:
+    DependsOn: PortworxNamespaceStack
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
+      ServiceToken: !Ref KubeManifestLambdaArn
+      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
+      KubeConfigPath: !Ref KubeConfigPath
+      # context for KMS to use when decrypting the file
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      # false 
+      PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
+      # Kubernetes manifest
+      Manifest: !Sub |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          annotations:
+            scheduler.alpha.kubernetes.io/critical-pod: ""
+          labels:
+            tier: control-plane
+          name: autopilot
+          namespace: kube-system
+        spec:
+          selector:
+            matchLabels:
+              name: autopilot
+          strategy:
+            rollingUpdate:
+              maxSurge: 1
+              maxUnavailable: 1
+            type: RollingUpdate
+          replicas: 1
+          template:
+            metadata:
+              annotations:
+                scheduler.alpha.kubernetes.io/critical-pod: ""
+              labels:
+                name: autopilot
+                tier: control-plane
+            spec:
+              affinity:
+                podAntiAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    - labelSelector:
+                        matchExpressions:
+                          - key: "name"
+                            operator: In
+                            values:
+                            - autopilot
+                      topologyKey: "kubernetes.io/hostname"
+              hostPID: false
+              containers:
+              - command:
+                - /autopilot
+                - -f
+                - ./etc/config/config.yaml
+                - -log-level
+                - debug
+                imagePullPolicy: Always
+                image: portworx/autopilot:1.2.1
+                resources:
+                  requests:
+                    cpu: '0.1'
+                securityContext:
+                  privileged: false
+                name: autopilot
+                volumeMounts:
+                - name: config-volume
+                  mountPath: /etc/config
+              serviceAccountName: autopilot-account
+              volumes:
+                - name: config-volume
+                  configMap:
+                    name: autopilot-config
+                    items:
+                    - key: config.yaml
+                      path: config.yaml
+  PXAutoPilotService:
+    DependsOn: PortworxNamespaceStack
+    Type: "Custom::KubeManifest"
+    Version: '1.0'
+    Properties:
+      # The lambda function that executes the manifest against the cluster. This is created in one of the parent stacks
+      ServiceToken: !Ref KubeManifestLambdaArn
+      # S3 path to the encrypted config file eg. s3://my-bucket/kube/config.encrypted
+      KubeConfigPath: !Ref KubeConfigPath
+      # context for KMS to use when decrypting the file
+      KubeConfigKmsContext: !Ref KubeConfigKmsContext
+      # false 
+      PortworxPxEnabledNotInValue: !Ref PortworxPxEnabledNotInValue
+      # Kubernetes manifest
+      Manifest: !Sub |
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: autopilot
+          namespace: kube-system
+          labels:
+            name: autopilot-service
+        spec:
+          ports:
+            - name: autopilot
+              protocol: TCP
+              port: 9628
+          selector:
+            name: autopilot
+            tier: control-plane
   PXNodePolicyStack:
     Type: AWS::IAM::Policy
     Properties:
